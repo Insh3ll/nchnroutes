@@ -168,10 +168,16 @@ with open("routes4.conf", "w") as f:
 with open("routes6.conf", "w") as f:
     dump_bird(root_v6, f)
 
-with open("noCN.rsc", "w") as f:
+with open("noCN4.rsc", "w") as f:
     f.write('/ip firewall address-list\n')
     f.write('remove [/ip firewall address-list find list=noCN]\n')
     dump_ros(root, f)
+    f.write('/\n')
+    f.write('/file remove noCN4.rsc\n')
+
+with open("noCN6.rsc", "w") as f:
+    f.write('/ipv6 firewall address-list\n')
+    f.write('remove [/ipv6 firewall address-list find list=noCN]\n')
     dump_ros(root_v6, f)
     f.write('/\n')
-    f.write('/file remove noCN.rsc\n')
+    f.write('/file remove noCN6.rsc\n')

@@ -52,6 +52,44 @@ and add `0 0 * * 0 make -C /path/to/nchnroutes` to the file.
 
 This will re generate the table every Sunday at midnight and reload BIRD afterwards.
 
+## ROS 
+
+System-->Script-->Add
+```
+:log info "start download noCN4.rsc ..."
+/tool fetch http-method=get url=https://ghproxy.com/https://raw.githubusercontent.com/Insh3ll/nchnroutes/main/noCN4.rsc
+:log info "noCN4.rsc downloaded."
+/file {
+  :local addrFile
+  :local fileSize
+  :set addrFile [find where name="noCN4.rsc"]
+  :set fileSize [get $addrFile size]
+  :if ($fileSize > 300000) do={
+    /import noCN4.rsc
+    :log info "noCN4 address list updated!"
+  }
+}
+
+:log info "start download noCN6.rsc ..."
+/tool fetch http-method=get url=https://ghproxy.com/https://raw.githubusercontent.com/Insh3ll/nchnroutes/main/noCN6.rsc
+:log info "noCN6.rsc downloaded."
+/file {
+  :local addrFile
+  :local fileSize
+  :set addrFile [find where name="noCN6.rsc"]
+  :set fileSize [get $addrFile size]
+  :if ($fileSize > 300000) do={
+    /import noCN6.rsc
+    :log info "noCN6 address list updated!"
+  }
+}
+```
+
+System-->Schedule-->Add
+```
+/system script run getNoCNlist
+```
+
 # refers
 
 - https://github.com/dndx/nchnroutes
