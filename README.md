@@ -51,3 +51,9 @@ sudo crontab -e
 and add `0 0 * * 0 make -C /path/to/nchnroutes` to the file.
 
 This will re generate the table every Sunday at midnight and reload BIRD afterwards.
+
+# refers
+
+- https://github.com/dndx/nchnroutes
+- https://github.com/zealic/autorosvpn
+- https://github.com/dan91ng/rosaddlist-nchnroutes
