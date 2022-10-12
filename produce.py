@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
+import os
 import argparse
 import csv
 from ipaddress import IPv4Network, IPv6Network
 import math
 
-parser = argparse.ArgumentParser(description='Generate non-China routes for BIRD.')
+parser = argparse.ArgumentParser(
+    description='Generate non-China routes for BIRD.')
 parser.add_argument('--exclude', metavar='CIDR', type=str, nargs='*',
                     help='IPv4 ranges to exclude in CIDR format')
-parser.add_argument('--next', default="wg0", metavar = "INTERFACE OR IP",
+parser.add_argument('--next', default="wg0", metavar="INTERFACE OR IP",
                     help='next hop for where non-China IP address, this is usually the tunnel interface')
 parser.add_argument('--ipv4-list', choices=['apnic', 'ipip'], default=['apnic', 'ipip'], nargs='*',
                     help='IPv4 lists to use when subtracting China based IP, multiple lists can be used at the same time (default: apnic ipip)')
 
 args = parser.parse_args()
+
 
 class Node:
     def __init__(self, cidr, parent=None):
@@ -24,10 +27,12 @@ class Node:
     def __repr__(self):
         return "<Node %s>" % self.cidr
 
+
 def dump_tree(lst, ident=0):
     for n in lst:
         print("+" * ident + str(n))
         dump_tree(n.child, ident + 1)
+
 
 def dump_bird(lst, f):
     for n in lst:
@@ -39,6 +44,19 @@ def dump_bird(lst, f):
 
         elif not n.dead:
             f.write('route %s via "%s";\n' % (n.cidr, args.next))
+
+
+def dump_ros(lst, f):
+    for n in lst:
+        if n.dead:
+            continue
+
+        if len(n.child) > 0:
+            dump_ros(n.child, f)
+
+        elif not n.dead:
+            f.write('add list=noCN address=' + str(n.cidr) + '\n')
+
 
 RESERVED = [
     IPv4Network('0.0.0.0/8'),
@@ -69,7 +87,23 @@ if args.exclude:
         else:
             RESERVED.append(IPv4Network(e))
 
+# add exclude
+CWD = os.path.dirname(os.path.abspath(__file__))
+EXCLUDE_DIR = os.path.join(CWD, 'exclude')
+if os.path.exists(EXCLUDE_DIR):
+    for fn in os.listdir(EXCLUDE_DIR):
+        fp = os.path.join(EXCLUDE_DIR, fn)
+        with open(fp) as fi:
+            for line in fi:
+                if '.' in line:
+                    RESERVED.append(IPv4Network(line.strip()))
+                elif ':' in line:
+                    RESERVED_V6.append(IPv6Network(line.strip()))
+                else:
+                    continue
+
 IPV6_UNICAST = IPv6Network('2000::/3')
+
 
 def subtract_cidr(sub_from, sub_by):
     for cidr_to_sub in sub_by:
@@ -83,15 +117,17 @@ def subtract_cidr(sub_from, sub_by):
                     subtract_cidr(n.child, sub_by)
 
                 else:
-                    n.child = [Node(b, n) for b in n.cidr.address_exclude(cidr_to_sub)]
+                    n.child = [Node(b, n)
+                               for b in n.cidr.address_exclude(cidr_to_sub)]
 
                 break
+
 
 root = []
 root_v6 = [Node(IPV6_UNICAST)]
 
 with open("ipv4-address-space.csv", newline='') as f:
-    f.readline() # skip the title
+    f.readline()  # skip the title
 
     reader = csv.reader(f, quoting=csv.QUOTE_MINIMAL)
     for cidr in reader:
@@ -131,3 +167,11 @@ with open("routes4.conf", "w") as f:
 
 with open("routes6.conf", "w") as f:
     dump_bird(root_v6, f)
+
+with open("noCN.rsc", "w") as f:
+    f.write('/ip firewall address-list\n')
+    f.write('remove [/ip firewall address-list find list=noCN]\n')
+    dump_ros(root, f)
+    dump_ros(root_v6, f)
+    f.write('/\n')
+    f.write('/file remove noCN.rsc\n')
